@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Voice Chat</title>
+</head>
+<body>
+  <h1>Live Voice Chat</h1>
+  <button id="start-btn">Start Voice Chat</button>
+  <p id="status">Status: Idle</p>
+  <p id="response"></p>
+
+  <script>
+    const startBtn = document.getElementById('start-btn');
+    const statusText = document.getElementById('status');
+    const responseText = document.getElementById('response');
+
+    // Helper function to clean text for exit command detection
+    function cleanText(text) {
+      return text.trim().toLowerCase().replace(/[.,!؟؛،]/g, "");
+    }
+
+    // Azure Text-to-Speech function
+    async function speakWithAzure(text) {
+      const subscriptionKey = '96f3229ebe7f4fe9ae4e3a1d01bf2184'; // Replace with your Azure subscription key
+      const region = 'eastus2'; // Replace with your Azure region
+      const endpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Ocp-Apim-Subscription-Key': subscriptionKey,
+          'Content-Type': 'application/ssml+xml',
+          'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+        },
+        body: `<speak version='1.0' xml:lang='ar-EG'><voice xml:lang='ar-EG' xml:gender='Female' name='ar-EG-SalmaNeural'>${text}</voice></speak>`,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Azure TTS error: ${response.statusText}`);
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.play();
+      return audio; // Return the audio object to track when it finishes playing
+    }
+
+    if (!('webkitSpeechRecognition' in window)) {
+      alert("Your browser does not support speech recognition. Please use Chrome or Edge.");
+    } else {
+      const recognition = new webkitSpeechRecognition();
+      recognition.lang = 'ar-EG'; // Egyptian Arabic
+      recognition.interimResults = false;
+      recognition.continuous = false; // Listen for one utterance at a time
+
+      let isActive = false;  // Whether voice chat is active
+      let isSpeaking = false; // Whether the bot is currently speaking
+
+      // Function to stop voice chat completely (simulate Stop Voice Chat click)
+      function stopVoiceChat() {
+        isActive = false;
+        // Use abort() to immediately cancel recognition
+        recognition.abort();
+        startBtn.innerText = "Start Voice Chat";
+        statusText.innerText = "Chat closed";
+        responseText.innerText = "مع السلامة!";
+        // Speak "مع السلامة" using Azure TTS
+        speakWithAzure("مع السلامة").then(() => {
+          // Disable the button to prevent restarting
+          startBtn.disabled = true;
+          // Remove event handlers to fully stop further processing
+          recognition.onresult = null;
+          recognition.onerror = null;
+          recognition.onend = null;
+        }).catch((error) => {
+          console.error("Azure TTS error:", error);
+        });
+      }
+
+      recognition.onresult = async (event) => {
+        if (isSpeaking) {
+          console.log("Ignoring recognition result while speaking.");
+          return;
+        }
+        const userQuery = event.results[0][0].transcript;
+        console.log("User query:", userQuery);
+
+        // Use cleanText() to check if the command is an exit command
+        const cleanedQuery = cleanText(userQuery);
+        if (cleanedQuery === "خروج" || cleanedQuery === "إنهاء") {
+          stopVoiceChat();
+          return;
+        }
+
+        statusText.innerText = "Processing...";
+
+        try {
+          // Stop recognition temporarily so that the bot's answer is not picked up
+          recognition.stop();
+
+          // Send the query to your Flask backend
+          const response = await fetch('/voice-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: userQuery }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          responseText.innerText = data.response;
+
+          // Speak the response using Azure TTS
+          isSpeaking = true;
+          const audio = await speakWithAzure(data.response);
+
+          // Wait for the audio to finish playing
+          audio.onended = () => {
+            isSpeaking = false;
+            // Restart recognition after a short delay only if chat is active
+            setTimeout(() => {
+              if (isActive) {
+                recognition.start();
+                statusText.innerText = "Listening...";
+              }
+            }, 2000);
+          };
+        } catch (error) {
+          console.error("Error:", error);
+          responseText.innerText = "Error: " + error.message;
+          setTimeout(() => {
+            if (isActive) {
+              recognition.start();
+              statusText.innerText = "Listening...";
+            }
+          }, 2000);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        statusText.innerText = "Error: " + event.error;
+      };
+
+      // In case recognition ends unexpectedly, restart it if still active and not speaking
+      recognition.onend = () => {
+        if (!isSpeaking && isActive) {
+          setTimeout(() => {
+            recognition.start();
+            statusText.innerText = "Listening...";
+          }, 500);
+        }
+      };
+
+      // Toggle start/stop when the button is clicked
+      startBtn.addEventListener('click', () => {
+        if (isActive) {
+          // If active, stop the voice chat
+          stopVoiceChat();
+        } else {
+          isActive = true;
+          startBtn.disabled = false;
+          recognition.start();
+          startBtn.innerText = "Stop Voice Chat";
+          statusText.innerText = "Listening...";
+        }
+      });
+    }
+  </script>
+</body>
+</html>
