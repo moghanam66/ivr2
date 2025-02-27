@@ -640,8 +640,7 @@ def messages():
             mimetype="application/json"
         )
     try:
-        body = request.json
-    except Exception as e:
+        body = request.from_dict
         print(f"❌ Error parsing JSON: {e}")
         return Response(
             json.dumps({"error": "Bad Request: Invalid JSON."}),
