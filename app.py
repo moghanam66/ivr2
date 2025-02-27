@@ -512,7 +512,6 @@ def messages():
                     adapter.process_activity(activity, auth_header, bot.on_turn),
                     timeout=60  # 60 seconds timeout for bot processing
                 )
-                print(response , "*****")
             except asyncio.TimeoutError:
                 print("⚠️ Bot processing timed out after 60s")
                 raise
