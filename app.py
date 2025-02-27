@@ -489,6 +489,7 @@ adapter = DebugBotFrameworkAdapter(BotFrameworkAdapterSettings(
 ))
  
 # Enhanced Bot Handler with Full Pipeline Logging
+# Enhanced Bot Handler with Full Pipeline Logging
 class DiagnosticBotHandler:
     async def on_message(self, context: TurnContext):
         try:
@@ -497,6 +498,7 @@ class DiagnosticBotHandler:
            
             # Execute response pipeline
             response = await self._process_message(user_message)
+            print(f"final: {response}")
            
             # Send and log response
             await context.send_activity(response)
@@ -504,7 +506,9 @@ class DiagnosticBotHandler:
            
         except Exception as e:
             print(f"🔥 Pipeline Error: {str(e)}")
+            await context.send_activity("عذرًا، حدث خطأ أثناء معالجة طلبك.")
             raise
+ 
    
     async def _process_message(self, text: str) -> str:
         # Step 1: Check cache
@@ -589,29 +593,68 @@ class DiagnosticBotHandler:
         except Exception as e:
             print(f"❌ Vector search error: {str(e)}")
             return None
+       
+#TRY 2
+# Initialize Bot Framework adapter
+adapter_settings = BotFrameworkAdapterSettings(MICROSOFT_APP_ID, MICROSOFT_APP_PASSWORD)
+adapter = BotFrameworkAdapter(adapter_settings)
  
-# Modified messages endpoint
+# Bot logic
+class VoiceChatBot:
+    async def on_turn(self, turn_context: TurnContext):
+        if turn_context.activity.type == "message":
+            user_query = turn_context.activity.text
+            print(f"Received message: {user_query}")
+ 
+            # Process the user's message and generate a response
+            response_text = await self._process_message(user_query)
+ 
+            # Send the response back to the user
+            await turn_context.send_activity(response_text)
+        elif turn_context.activity.type == "conversationUpdate":
+            for member in turn_context.activity.members_added or []:
+                if member.id != turn_context.activity.recipient.id:
+                    welcome_message = "مرحبًا! كيف يمكنني مساعدتك اليوم؟"
+                    await turn_context.send_activity(welcome_message)
+        else:
+            await turn_context.send_activity(f"Received activity of type: {turn_context.activity.type}")
+ 
+    async def _process_message(self, text: str) -> str:
+        # Add your logic here to process the user's message and generate a response
+        return f"You said: {text}"
+ 
+# Create an instance of the bot
+bot = VoiceChatBot()
+ 
+# Flask endpoint to handle messages from the Bot Framework Emulator
 @app.route("/api/messages", methods=["POST"])
 def messages():
     if request.headers.get("Content-Type") != "application/json":
         return Response("Unsupported Media Type", status=415)
-   
+ 
     try:
+        # Get the activity from the request
         activity_data = request.json
         activity = Activity().deserialize(activity_data)
-       
+ 
+        # Get the authorization header
+        auth_header = request.headers.get("Authorization", "")
+ 
+        # Create a TurnContext for the activity
+        turn_context = TurnContext(adapter, activity)
+ 
+        # Process the activity using the bot's logic
         async def process_activity():
-            turn_context = TurnContext(adapter, activity)
-            await DiagnosticBotHandler().on_message(turn_context)
-       
-        # Run with clean event loop
+            await adapter.process_activity(activity, auth_header, bot.on_turn)
+ 
+        # Run the async function in a new event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(process_activity())
         loop.close()
-       
+ 
         return Response("OK", status=200)
-   
+ 
     except Exception as e:
         print(f"🔥 Endpoint Error: {str(e)}")
         return Response("Internal Server Error", status=500)
