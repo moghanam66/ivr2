@@ -508,10 +508,8 @@ def messages():
         async def process_activity():
             try:
                 # Fix: Await process_activity() directly inside wait_for()
-                await asyncio.wait_for(
-                    adapter.process_activity(activity, auth_header, bot.on_turn),
-                    timeout=60  # 60 seconds timeout for bot processing
-                )
+                await adapter.process_activity(activity, auth_header, bot.on_turn)
+                 
             except asyncio.TimeoutError:
                 print("⚠️ Bot processing timed out after 60s")
                 raise
