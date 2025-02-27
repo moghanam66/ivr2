@@ -661,7 +661,7 @@ def messages():
     auth_header = request.headers.get("Authorization", "")
  
     async def process():
-        response = await adapter.process_activity(activity, auth_header, BOT.on_turn)
+        response = await adapter.process_activity(activity, auth_header, bot.on_turn)
         if response:
             return jsonify(response.body), response.status
         return Response(status=201)
