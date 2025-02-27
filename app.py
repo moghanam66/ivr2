@@ -640,41 +640,42 @@ def messages():
             mimetype="application/json"
         )
     try:
-        body = request.json
+        try:
+            body = request.json
+        except Exception as e:
+            print(f"❌ Error parsing JSON: {e}")
+            return Response(
+                json.dumps({"error": "Bad Request: Invalid JSON."}),
+                status=400,
+                mimetype="application/json"
+            )
+           
+       
+        print("🔍 Incoming request JSON:", json.dumps(body, indent=2, ensure_ascii=False))
+        try:
+            activity = Activity().from_dict(body)
+           
+        except Exception as e:
+            print(f"❌ Activity deserialization error: {e}")
+            return Response(
+                json.dumps({"error": "Bad Request: Unable to deserialize activity."}),
+                status=400,
+                mimetype="application/json"
+            )
+        auth_header = request.headers.get("Authorization", "")
+   
+        async def process():
+            response = await adapter.process_activity(activity, auth_header, bot.on_turn)
+            if response:
+                return jsonify(response.body), response.status
+            return Response(status=201)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(process())
+        loop.close()
+        return result
     except Exception as e:
-        print(f"❌ Error parsing JSON: {e}")
-        return Response(
-            json.dumps({"error": "Bad Request: Invalid JSON."}),
-            status=400,
-            mimetype="application/json"
-        )
-        print(f"❌ Error parsing JSON: {e}")
-        return Response(
-            json.dumps({"error": "Bad Request: Invalid JSON."}),
-            status=400,
-            mimetype="application/json"
-        )
-     
-    print("🔍 Incoming request JSON:", json.dumps(body, indent=2, ensure_ascii=False))
-    try:
-        activity = Activity().from_dict(body)
-        
-    except Exception as e:
-        print(f"❌ Activity deserialization error: {e}")
-        return Response(
-            json.dumps({"error": "Bad Request: Unable to deserialize activity."}),
-            status=400,
-            mimetype="application/json"
-        )
-    auth_header = request.headers.get("Authorization", "")
- 
-    async def process():
-        response = await adapter.process_activity(activity, auth_header, bot.on_turn)
-        if response:
-            return jsonify(response.body), response.status
-        return Response(status=201)
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(process())
-    loop.close()
-    return result
+        print(f"❌ Critical error in /api/messages: {str(e)}")
+        return Response("Internal server error", status=500)
+if __name__ == "__main__":
+    app.run(debug=True)
