@@ -641,7 +641,7 @@ def messages():
         )
     try:
         body = request.json
-     except Exception as e:
+    except Exception as e:
         print(f"❌ Error parsing JSON: {e}")
         return Response(
             json.dumps({"error": "Bad Request: Invalid JSON."}),
