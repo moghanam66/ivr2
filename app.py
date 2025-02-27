@@ -640,7 +640,7 @@ def messages():
             mimetype="application/json"
         )
     try:
-        body = request.get_json(force=True)
+        body = request.json
     except Exception as e:
         print(f"❌ Error parsing JSON: {e}")
         return Response(
