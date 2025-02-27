@@ -648,9 +648,10 @@ def messages():
             status=400,
             mimetype="application/json"
         )
- 
+    print("🔍 Incoming request JSON:", json.dumps(body, indent=2, ensure_ascii=False))
     try:
         activity = Activity().deserialize(body)
+        
     except Exception as e:
         print(f"❌ Activity deserialization error: {e}")
         return Response(
