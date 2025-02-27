@@ -491,7 +491,7 @@ def messages():
         activity = Activity().deserialize(body)
        
         if not activity.channel_id:
-            activity.channel_id = body.get("channelId", "emulator")
+            activity.channel_id = body.get("channelId", "webchat")
         if not activity.service_url:
             # Make sure this URL is correct and reachable
             activity.service_url = "https://linkdev-poc-cfb2fbaxbgf9d4dd.westeurope-01.azurewebsites.net"
