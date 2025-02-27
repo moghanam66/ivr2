@@ -519,7 +519,7 @@ def messages():
  
         try:
              #Fix 5: Use shorter overall timeout
-            loop.run_until_complete(process_activity(), timeout=150)
+            loop.run_until_complete(process_activity())
         except asyncio.TimeoutError:
             print("❌ Total processing time exceeded 150 seconds")
             return Response("Request timeout", status=504)
