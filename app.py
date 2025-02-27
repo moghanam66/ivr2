@@ -507,10 +507,10 @@ def messages():
         # Fix 3: Add timeout handling for the entire operation
         async def process_activity():
             try:
-                # Fix 4: Add timeout for the actual processing
+                # Fix: Await process_activity() directly inside wait_for()
                 await asyncio.wait_for(
-                    response = adapter.process_activity(activity, request.headers.get("Authorization", ""), bot.on_turn),
-                    timeout=60  # 60 seconds for actual processing
+                    adapter.process_activity(activity, auth_header, bot.on_turn),
+                    timeout=60  # 60 seconds timeout for bot processing
                 )
                 print(response , "*****")
             except asyncio.TimeoutError:
