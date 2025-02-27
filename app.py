@@ -509,9 +509,10 @@ def messages():
             try:
                 # Fix 4: Add timeout for the actual processing
                 await asyncio.wait_for(
-                    adapter.process_activity(activity, request.headers.get("Authorization", ""), bot.on_turn),
+                    response = adapter.process_activity(activity, request.headers.get("Authorization", ""), bot.on_turn),
                     timeout=60  # 60 seconds for actual processing
                 )
+                print(response , "*****")
             except asyncio.TimeoutError:
                 print("⚠️ Bot processing timed out after 60s")
                 raise
@@ -526,7 +527,7 @@ def messages():
             print("❌ Total processing time exceeded 150 seconds")
             return Response("Request timeout", status=504)
            
-        return Response(status=201)
+        return response
  
     except Exception as e:
         print(f"❌ Critical error in /api/messages: {str(e)}")
