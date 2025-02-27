@@ -640,16 +640,24 @@ def messages():
             mimetype="application/json"
         )
     try:
-        body = request.from_dict
+        body = request.json
+     except Exception as e:
         print(f"❌ Error parsing JSON: {e}")
         return Response(
             json.dumps({"error": "Bad Request: Invalid JSON."}),
             status=400,
             mimetype="application/json"
         )
+        print(f"❌ Error parsing JSON: {e}")
+        return Response(
+            json.dumps({"error": "Bad Request: Invalid JSON."}),
+            status=400,
+            mimetype="application/json"
+        )
+     
     print("🔍 Incoming request JSON:", json.dumps(body, indent=2, ensure_ascii=False))
     try:
-        activity = Activity().deserialize(body)
+        activity = Activity().from_dict(body)
         
     except Exception as e:
         print(f"❌ Activity deserialization error: {e}")
