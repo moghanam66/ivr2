@@ -629,35 +629,44 @@ bot = VoiceChatBot()
 # Flask endpoint to handle messages from the Bot Framework Emulator
 @app.route("/api/messages", methods=["POST"])
 def messages():
-    if request.headers.get("Content-Type") != "application/json":
-        return Response("Unsupported Media Type", status=415)
+    # Get and normalize the Content-Type header.
+    content_type = request.headers.get("Content-Type", "").lower()
+    if "application/json" not in content_type:
+        # Log the unexpected content type and return a 415 response.
+        print(f"❌ Unsupported Content-Type received: {content_type}")
+        return Response(
+            json.dumps({"error": "Unsupported Media Type. Expected application/json."}),
+            status=415,
+            mimetype="application/json"
+        )
+    try:
+        body = request.get_json(force=True)
+    except Exception as e:
+        print(f"❌ Error parsing JSON: {e}")
+        return Response(
+            json.dumps({"error": "Bad Request: Invalid JSON."}),
+            status=400,
+            mimetype="application/json"
+        )
  
     try:
-        # Get the activity from the request
-        activity_data = request.json
-        activity = Activity().deserialize(activity_data)
- 
-        # Get the authorization header
-        auth_header = request.headers.get("Authorization", "")
- 
-        # Create a TurnContext for the activity
-        turn_context = TurnContext(adapter, activity)
- 
-        # Process the activity using the bot's logic
-        async def process_activity():
-            await adapter.process_activity(activity, auth_header, bot.on_turn)
- 
-        # Run the async function in a new event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(process_activity())
-        loop.close()
- 
-        return Response("OK", status=200)
- 
+        activity = Activity().deserialize(body)
     except Exception as e:
-        print(f"🔥 Endpoint Error: {str(e)}")
-        return Response("Internal Server Error", status=500)
+        print(f"❌ Activity deserialization error: {e}")
+        return Response(
+            json.dumps({"error": "Bad Request: Unable to deserialize activity."}),
+            status=400,
+            mimetype="application/json"
+        )
+    auth_header = request.headers.get("Authorization", "")
  
-if __name__ == "__main__":
-    app.run(debug=True)
+    async def process():
+        response = await adapter.process_activity(activity, auth_header, BOT.on_turn)
+        if response:
+            return jsonify(response.body), response.status
+        return Response(status=201)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(process())
+    loop.close()
+    return result
