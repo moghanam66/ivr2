@@ -524,7 +524,7 @@ def messages():
             #print("❌ Total processing time exceeded 150 seconds")
             #return Response("Request timeout", status=504)
            
-        return response
+        #return response
  
     except Exception as e:
         print(f"❌ Critical error in /api/messages: {str(e)}")
