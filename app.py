@@ -517,12 +517,12 @@ def messages():
                 print(f"❌ Error in adapter processing: {e}")
                 raise
  
-        try:
+        #try:
             # Fix 5: Use shorter overall timeout
-            loop.run_until_complete(asyncio.wait_for(process_activity(), timeout=150))
-        except asyncio.TimeoutError:
-            print("❌ Total processing time exceeded 150 seconds")
-            return Response("Request timeout", status=504)
+            #loop.run_until_complete(asyncio.wait_for(process_activity(), timeout=150))
+        #except asyncio.TimeoutError:
+            #print("❌ Total processing time exceeded 150 seconds")
+            #return Response("Request timeout", status=504)
            
         return response
  
