@@ -439,7 +439,7 @@ def index():
 # ------------------------------------------------------------------
 # Bot Framework Integration
 # ------------------------------------------------------------------
-from botbuilder.schema import ConversationAccount
+from botbuilder.schema import ConversationAccount, Activity, ResourceResponse
  
 # Bot Framework credentials (set via environment or hard-code for testing)
 MICROSOFT_APP_ID = "b0a29017-ea3f-4697-aef7-0cb05979d16c"
@@ -449,89 +449,172 @@ MICROSOFT_APP_PASSWORD = "2fc8Q~YUZMbD8E7hEb4.vQoDFortq3Tvt~CLCcEQ"
 adapter_settings = BotFrameworkAdapterSettings(MICROSOFT_APP_ID, MICROSOFT_APP_PASSWORD)
 adapter = BotFrameworkAdapter(adapter_settings)
  
-# Define a bot class that uses your get_response logic
-class VoiceChatBot:
-    async def on_turn(self, turn_context: TurnContext):
-        if turn_context.activity.type == "message":
-            user_query = turn_context.activity.text
-            print(f"Received message: {user_query}")
-            response_text = await voice_chat(user_query)
-            await turn_context.send_activity(response_text)
-        elif turn_context.activity.type == "conversationUpdate":
-            for member in turn_context.activity.members_added or []:
-                if member.id != turn_context.activity.recipient.id:
-                    welcome_message = "مرحبًا! كيف يمكنني مساعدتك اليوم؟"
-                    await turn_context.send_activity(welcome_message)
-        else:
-            await turn_context.send_activity(f"Received activity of type: {turn_context.activity.type}")
  
-# Create an instance of the bot
-bot = VoiceChatBot()
  
+# Add to imports
+from typing import List
+ 
+# Enhanced Dummy Connector Client with full logging
+class DebugConnectorClient:
+    async def send_to_conversation(self, conversation_id: str, activity: Activity):
+        # Print final bot response with conversation context
+        print("\n=== BOT RESPONSE ===")
+        print(f"Conversation: {conversation_id}")
+        print(f"Response Text: {activity.text}")
+        print("====================\n")
+        return ResourceResponse(id="debug-response")
+ 
+# Custom Adapter with Enhanced Logging
+class DebugBotFrameworkAdapter(BotFrameworkAdapter):
+    def __init__(self, settings):
+        super().__init__(settings)
+        self.connector_client = DebugConnectorClient()
+   
+    async def send_activities(self, context: TurnContext, activities: List[Activity]):
+        responses = []
+        for activity in activities:
+            # Log before sending
+            print(f"📤 Attempting to send activity: {activity.text}")
+            response = await self.connector_client.send_to_conversation(
+                context.activity.conversation.id,
+                activity
+            )
+            responses.append(response)
+        return responses
+ 
+# Initialize adapter with debug capabilities
+adapter = DebugBotFrameworkAdapter(BotFrameworkAdapterSettings(
+    MICROSOFT_APP_ID,
+    MICROSOFT_APP_PASSWORD
+))
+ 
+# Enhanced Bot Handler with Full Pipeline Logging
+class DiagnosticBotHandler:
+    async def on_message(self, context: TurnContext):
+        try:
+            user_message = context.activity.text
+            print(f"\n🔍 Processing query: {user_message}")
+           
+            # Execute response pipeline
+            response = await self._process_message(user_message)
+           
+            # Send and log response
+            await context.send_activity(response)
+            return response
+           
+        except Exception as e:
+            print(f"🔥 Pipeline Error: {str(e)}")
+            raise
+   
+    async def _process_message(self, text: str) -> str:
+        # Step 1: Check cache
+        cached = check_redis_cache(text)
+        if cached:
+            print(f"✅ Found cached response: {cached}")
+            return cached
+       
+        # Step 2: Semantic Search
+        semantic_result = await self._try_semantic_search(text)
+        if semantic_result:
+            return semantic_result
+       
+        # Step 3: Vector Search
+        vector_result = await self._try_vector_search(text)
+        if vector_result:
+            return vector_result
+       
+        # Step 4: Fallback to GPT-4o
+        print("🔍 No match found, falling back to GPT‑4o realtime...")
+        gpt_response = await get_realtime_response(text)
+        if gpt_response:
+            print(f"✅ GPT‑4o realtime response: {gpt_response}")
+            try:
+                redis_client.set(text, gpt_response, ex=3600)
+                print("✅ Response cached in Redis.")
+            except Exception as e:
+                print(f"❌ Cache write failed: {e}")
+            return gpt_response
+       
+        return "عذرًا، لم أتمكن من العثور على إجابة."
+ 
+    async def _try_semantic_search(self, query: str):
+        try:
+            print("🔍 Starting semantic search...")
+            results = search_client.search(
+                search_text=query,
+                query_type="semantic",
+                semantic_configuration_name="my-semantic-config-default",
+                top=3
+            )
+           
+            if not results:
+                print("❌ No semantic search answers found.")
+                return None
+               
+            best = next(results, None)
+            if best and best.get("@search.reranker_score", 0) >= SEMANTIC_THRESHOLD:
+                print(f"✅ Semantic match (score: {best['@search.reranker_score']})")
+                return best["answer"]
+           
+            print(f"❌ Semantic score below threshold: {best['@search.reranker_score']}")
+            return None
+           
+        except Exception as e:
+            print(f"❌ Semantic search error: {str(e)}")
+            return None
+ 
+    async def _try_vector_search(self, query: str):
+        try:
+            print("🔍 Starting vector search...")
+            embedding = get_embedding(query)
+            vector_query = VectorizedQuery(
+                vector=embedding,
+                k_nearest_neighbors=50,
+                fields="embedding"
+            )
+           
+            results = search_client.search(
+                vector_queries=[vector_query],
+                top=3
+            )
+           
+            best = next(results, None)
+            if best and best.get("@search.score", 0) >= VECTOR_THRESHOLD:
+                print(f"✅ Vector match (score: {best['@search.score']})")
+                return best["answer"]
+           
+            print(f"❌ Vector score below threshold: {best['@search.score']}")
+            return None
+           
+        except Exception as e:
+            print(f"❌ Vector search error: {str(e)}")
+            return None
+ 
+# Modified messages endpoint
 @app.route("/api/messages", methods=["POST"])
 def messages():
-    if request.headers.get("Content-Type", "") != "application/json":
-        return Response("Invalid Content-Type", status=415)
+    if request.headers.get("Content-Type") != "application/json":
+        return Response("Unsupported Media Type", status=415)
    
     try:
-        body = request.json
-        print(body)
-        if not body:
-            print("❌ Empty request body received")
-            return Response("Empty request body", status=400)
-   
-        print("🔍 Incoming request JSON:", json.dumps(body, indent=2, ensure_ascii=False))
-   
-        # Ensure the activity type is set
-        if "type" not in body:
-            body["type"] = "message"
-            print("🔍 Updated request JSON:", json.dumps(body, indent=2, ensure_ascii=False))
-                   
-        # Deserialize the incoming JSON into an Activity object
-        activity = Activity().deserialize(body)
+        activity_data = request.json
+        activity = Activity().deserialize(activity_data)
        
-        if not activity.channel_id:
-            activity.channel_id = body.get("channelId", "webchat")
-        if not activity.service_url:
-            # Make sure this URL is correct and reachable
-            activity.service_url = "https://linkdev-poc-cfb2fbaxbgf9d4dd.westeurope-01.azurewebsites.net"
-       
-        auth_header = request.headers.get("Authorization", "")
-        if not auth_header:
-            auth_header="Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImltaTBZMnowZFlLeEJ0dEFxS19UdDVoWUJUayJ9.eyJhdWQiOiJiMGEyOTAxNy1lYTNmLTQ2OTctYWVmNy0wY2IwNTk3OWQxNmMiLCJpc3MiOiJodHRwczovL2xvZ2luLm1pY3Jvc29mdG9ubGluZS5jb20vZDZkNDk0MjAtZjM5Yi00ZGY3LWExZGMtZDU5YTkzNTg3MWRiL3YyLjAiLCJpYXQiOjE3NDA0NzY2MzcsIm5iZiI6MTc0MDQ3NjYzNywiZXhwIjoxNzQwNTYzMzM3LCJhaW8iOiJBU1FBMi84WkFBQUFzVnYrNXRUT0JkV3ZnVEYrQmVpUkd3azcyRTNKOXl6c1BjdHZjZmR5YU5ZPSIsImF6cCI6ImIwYTI5MDE3LWVhM2YtNDY5Ny1hZWY3LTBjYjA1OTc5ZDE2YyIsImF6cGFjciI6IjEiLCJyaCI6IjEuQVc0QUlKVFUxcHZ6OTAyaDNOV2FrMWh4MnhlUW9yQV82cGRHcnZjTXNGbDUwV3hlQVFCdUFBLiIsInRpZCI6ImQ2ZDQ5NDIwLWYzOWItNGRmNy1hMWRjLWQ1OWE5MzU4NzFkYiIsInV0aSI6IkhxVi1ZcHFoalVtZlJmXzlOXzhuQUEiLCJ2ZXIiOiIyLjAifQ.tkkP-QoPHHc4PqiUJNVUW-VsQwkhHmbFbbf_ZPviliEI7ldAmSYNbEbde9JsZwSHzFNsrYm_Ke3keSa_CVuRshFV2xXoMHTJtDdrU5NyfvN0ifIR1eUoLjIWMUDt0mDNXpHUjvBXKSbO-H7vejz3pk8xTejOMSR36iT6jpxPBEVH-5UdonJPAWGFHjouisOgfginuMJa4ZAFFeivdnGyubw67K8tEJejgwkFllevYaVDM5NEPTZMpDFFhwQKrPZQw_8spE1XEA_LK-SdrzIyWPO1rHbcDkKP5lhD2bHZHBKtrWiZzR_n1D7gZZ0AdT_bHDmJI26NplBEw7F9wNstoA"
-        print("auth: ", auth_header)
- 
-        # Fix 2: Use shared event loop policy
-        loop = asyncio.get_event_loop()
-       
-        # Fix 3: Add timeout handling for the entire operation
         async def process_activity():
-            try:
-                # Fix: Await process_activity() directly inside wait_for()
-                await adapter.process_activity(activity, auth_header, bot.on_turn)
-                return Response("second" , status=200)        
-            except asyncio.TimeoutError:
-                print("⚠️ Bot processing timed out after 60s")
-                raise
-            except Exception as e:
-                print(f"❌ Error in adapter processing: {e}")
-                raise
- 
-        try:
-             #Fix 5: Use shorter overall timeout
-            loop.run_until_complete(process_activity())
-        except asyncio.TimeoutError:
-            print("❌ Total processing time exceeded 150 seconds")
-            return Response("Request timeout", status=504)
-           
-        return Response("third" , status=200)
- 
+            turn_context = TurnContext(adapter, activity)
+            await DiagnosticBotHandler().on_message(turn_context)
+       
+        # Run with clean event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(process_activity())
+        loop.close()
+       
+        return Response("OK", status=200)
+   
     except Exception as e:
-        print(f"❌ Critical error in /api/messages: {str(e)}")
-        return Response("Internal server error", status=500)
- 
- 
+        print(f"🔥 Endpoint Error: {str(e)}")
+        return Response("Internal Server Error", status=500)
  
 if __name__ == "__main__":
     app.run(debug=True)
- 
