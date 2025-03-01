@@ -623,7 +623,7 @@ async def messages():
         await bot_logic(turn_context)
 
     #response = asyncio.run(adapter.process_activity(activity, "", turn_call))
-    response = asyncio.run(adapter.process_activity(body, auth_header, bot_logic))
+    response = asyncio.run(adapter.process_activity(activity, auth_header, bot_logic))
     print("ddddddd", response)
     if response:
         return jsonify(response)
