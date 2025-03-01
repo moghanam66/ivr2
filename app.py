@@ -606,9 +606,9 @@ adapter = BotFrameworkAdapter(settings)
  
 class SimpleBot:
     async def on_turn(self, turn_context: TurnContext):
-        #if turn_context.activity.type == "message":
-        await turn_context.send_activity(f"You said: {turn_context.activity.text}")
-bot_logic = SimpleBot()
+        if turn_context.activity.type == "message":
+           await turn_context.send_activity(f"You said: {turn_context.activity.text}")
+
 async def bot_logic(turn_context: TurnContext):
     bot = SimpleBot()
     await bot.on_turn(turn_context)
@@ -622,7 +622,7 @@ async def messages():
     async def turn_call(turn_context):
         await bot_logic(turn_context)
 
-    response = asyncio.run(adapter.process_activity(activity, "", turn_call))
+    response = adapter.process_activity(activity, "", turn_call)
     #response = asyncio.run(adapter.process_activity(activity, auth_header, bot_logic))
     print("ddddddd", response)
     if response:
