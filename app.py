@@ -617,13 +617,13 @@ async def bot_logic(turn_context: TurnContext):
 async def messages():
     body = request.json()
     activity = Activity().deserialize(body)
-    auth_header = request.headers.get("Authorization", "")
+    #auth_header = request.headers.get("Authorization", "")
  
     async def turn_call(turn_context):
         await bot_logic(turn_context)
 
-    #response = asyncio.run(adapter.process_activity(activity, "", turn_call))
-    response = asyncio.run(adapter.process_activity(activity, auth_header, bot_logic))
+    response = asyncio.run(adapter.process_activity(activity, "", turn_call))
+    #response = asyncio.run(adapter.process_activity(activity, auth_header, bot_logic))
     print("ddddddd", response)
     if response:
         return jsonify(response)
