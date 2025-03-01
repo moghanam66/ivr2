@@ -624,7 +624,7 @@ async def messages():
     response = adapter.process_activity(activity, "", turn_call)
     print("ddddddd", response)
     if response:
-        return response
+        return jsonify(response)
     else:
         raise HTTPException(status_code=500, detail="Bot processing error")
 if __name__ == "__main__":
