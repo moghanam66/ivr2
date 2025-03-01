@@ -28,7 +28,7 @@ from botbuilder.schema import Activity
  
 app = Flask(__name__)
 CORS(app)
-# CORS(app)  # Enable CORS for all routes
+# CORS(afghpp)  # Enable CORS for all routes
  
 # ------------------------------------------------------------------
 # Configuration for Azure OpenAI, GPT‑4o realtime, Azure Search, Redis, Speech
