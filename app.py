@@ -22,7 +22,7 @@ from botbuilder.schema import Activity
 
 nest_asyncio.apply()
  
-# Import Bot Frameworkss dependencies
+# Imaaport Bot Frameworkss dependencies
 from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings, TurnContext
 from botbuilder.schema import Activity
  
