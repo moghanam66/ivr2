@@ -626,4 +626,4 @@ async def messages(request: Request):
     else:
         raise HTTPException(status_code=500, detail="Bot processing error")
 if __name__ == "__main__":
-    app.run(debug=True)
+     uvicorn.run(app , debug=True)
