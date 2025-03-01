@@ -16,14 +16,18 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from flask_cors import CORS
 import nest_asyncio
+from fastapi import FastAPI, Request, HTTPException
+from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings, TurnContext
+from botbuilder.schema import Activity
+
 nest_asyncio.apply()
  
 # Import Bot Framework dependencies
 from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings, TurnContext
 from botbuilder.schema import Activity
  
-app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+app = FastAPI()
+# CORS(app)  # Enable CORS for all routes
  
 # ------------------------------------------------------------------
 # Configuration for Azure OpenAI, GPT‑4o realtime, Azure Search, Redis, Speech
@@ -596,86 +600,30 @@ class DiagnosticBotHandler:
        
 #TRY 2
 # Initialize Bot Framework adapter
-adapter_settings = BotFrameworkAdapterSettings(MICROSOFT_APP_ID, MICROSOFT_APP_PASSWORD)
-adapter = BotFrameworkAdapter(adapter_settings)
+settings = BotFrameworkAdapterSettings(app_id="b0a29017-ea3f-4697-aef7-0cb05979d16c", app_password="2fc8Q~YUZMbD8E7hEb4.vQoDFortq3Tvt~CLCcEQ")
+adapter = BotFrameworkAdapter(settings)
  
-# Bot logic
-class VoiceChatBot:
+class SimpleBot:
     async def on_turn(self, turn_context: TurnContext):
         if turn_context.activity.type == "message":
-            user_query = turn_context.activity.text
-            print(f"Received message: {user_query}")
- 
-            # Process the user's message and generate a response
-            response_text = await self._process_message(user_query)
- 
-            # Send the response back to the user
-            await turn_context.send_activity(response_text)
-        elif turn_context.activity.type == "conversationUpdate":
-            for member in turn_context.activity.members_added or []:
-                if member.id != turn_context.activity.recipient.id:
-                    welcome_message = "مرحبًا! كيف يمكنني مساعدتك اليوم؟"
-                    await turn_context.send_activity(welcome_message)
-        else:
-            await turn_context.send_activity(f"Received activity of type: {turn_context.activity.type}")
- 
-    async def _process_message(self, text: str) -> str:
-        # Add your logic here to process the user's message and generate a response
-        return f"You said: {text}"
- 
-# Create an instance of the bot
-bot = VoiceChatBot()
- 
-# Flask endpoint to handle messages from the Bot Framework Emulator
-@app.route("/api/messages", methods=["POST"])
-def messages():
-    # Get and normalize the Content-Type header.
-    content_type = request.headers.get("Content-Type", "").lower()
-    if "application/json" not in content_type:
-        # Log the unexpected content type and return a 415 response.
-        print(f"❌ Unsupported Content-Type received: {content_type}")
-        return Response(
-            json.dumps({"error": "Unsupported Media Type. Expected application/json."}),
-            status=415,
-            mimetype="application/json"
-        )
-    try:
-        try:
-            body = request.json
-        except Exception as e:
-            print(f"❌ Error parsing JSON: {e}")
-            return Response(
-                json.dumps({"error": "Bad Request: Invalid JSON."}),
-                status=400,
-                mimetype="application/json"
-            )
-           
-       
-        print("🔍 Incoming request JSON:", json.dumps(body, indent=2, ensure_ascii=False))
-        try:
-            activity = Activity().from_dict(body)
-           
-        except Exception as e:
-            print(f"❌ Activity deserialization error: {e}")
-            return Response(
-                json.dumps({"error": "Bad Request: Unable to deserialize activity."}),
-                status=400,
-                mimetype="application/json"
-            )
-        auth_header = request.headers.get("Authorization", "")
-   
-        async def process():
-            response = await adapter.process_activity(activity, auth_header, bot.on_turn)
-            if response:
-                return jsonify(response.body), response.status
-            return Response(status=201)
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(process())
-        loop.close()
-        return result
-    except Exception as e:
-        print(f"❌ Critical error in /api/messages: {str(e)}")
-        return Response("Internal server error", status=500)
+            await turn_context.send_activity(f"You said: {turn_context.activity.text}")
+
+async def bot_logic(turn_context: TurnContext):
+    bot = SimpleBot()
+    await bot.on_turn(turn_context)
+
+@app.post("/api/messages")
+async def messages(request: Request):
+    body = await request.json()
+    activity = Activity().deserialize(body)
+
+    async def turn_call(turn_context):
+        await bot_logic(turn_context)
+
+    response = await adapter.process_activity(activity, "", turn_call)
+    if response:
+        return response
+    else:
+        raise HTTPException(status_code=500, detail="Bot processing error")
 if __name__ == "__main__":
     app.run(debug=True)
