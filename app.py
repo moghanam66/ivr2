@@ -615,7 +615,7 @@ async def bot_logic(turn_context: TurnContext):
 
 @app.route("/api/messages", methods=["POST"])
 async def messages():
-    body = request.json()
+    body = request.get_json()
     activity = Activity().deserialize(body)
 
     async def turn_call(turn_context):
