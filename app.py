@@ -26,7 +26,8 @@ nest_asyncio.apply()
 from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings, TurnContext
 from botbuilder.schema import Activity
  
-app = FastAPI()
+app = Flask(__name__)
+CORS(app)
 # CORS(app)  # Enable CORS for all routes
  
 # ------------------------------------------------------------------
@@ -626,4 +627,4 @@ async def messages(request: Request):
     else:
         raise HTTPException(status_code=500, detail="Bot processing error")
 if __name__ == "__main__":
-     uvicorn.run(app , debug=True)
+     app.run(debug=True)
