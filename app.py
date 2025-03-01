@@ -626,7 +626,7 @@ async def messages():
     #response = asyncio.run(adapter.process_activity(activity, auth_header, bot_logic))
     print("ddddddd", response)
     if response:
-        return jsonify(response)
+        return response
     else:
         raise HTTPException(status_code=500, detail="Bot processing error")
 if __name__ == "__main__":
