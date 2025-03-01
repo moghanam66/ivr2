@@ -598,7 +598,7 @@ class DiagnosticBotHandler:
         except Exception as e:
             print(f"❌ Vector search error: {str(e)}")
             return None
-       
+from my_bot_logic import bot_logic       
 #TRY 2
 # Initialize Bot Framework adapter
 settings = BotFrameworkAdapterSettings(app_id="b0a29017-ea3f-4697-aef7-0cb05979d16c", app_password="2fc8Q~YUZMbD8E7hEb4.vQoDFortq3Tvt~CLCcEQ")
@@ -615,13 +615,15 @@ async def bot_logic(turn_context: TurnContext):
 
 @app.route("/api/messages", methods=["POST"])
 async def messages():
-    body = request.get_json()
+    body = request.json()
     activity = Activity().deserialize(body)
-
+    auth_header = request.headers.get("Authorization", "")
+ 
     async def turn_call(turn_context):
         await bot_logic(turn_context)
 
-    response = adapter.process_activity(activity, "", turn_call)
+    #response = asyncio.run(adapter.process_activity(activity, "", turn_call))
+    response = asyncio.run(adapter.process_activity(body, auth_header, bot_logic))
     print("ddddddd", response)
     if response:
         return jsonify(response)
