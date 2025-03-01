@@ -615,13 +615,13 @@ async def bot_logic(turn_context: TurnContext):
 
 @app.route("/api/messages", methods=["POST"])
 async def messages(request: Request):
-    body = await request.json()
+    body = request.json()
     activity = Activity().deserialize(body)
 
     async def turn_call(turn_context):
         await bot_logic(turn_context)
 
-    response = await adapter.process_activity(activity, "", turn_call)
+    response = adapter.process_activity(activity, "", turn_call)
     if response:
         return response
     else:
