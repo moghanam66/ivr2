@@ -612,7 +612,7 @@ async def bot_logic(turn_context: TurnContext):
     bot = SimpleBot()
     await bot.on_turn(turn_context)
 
-@app.post("/api/messages")
+@app.route("/api/messages", methods=["POST"])
 async def messages(request: Request):
     body = await request.json()
     activity = Activity().deserialize(body)
