@@ -622,6 +622,7 @@ async def messages():
         await bot_logic(turn_context)
 
     response = adapter.process_activity(activity, "", turn_call)
+    print("ddddddd", response)
     if response:
         return response
     else:
