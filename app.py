@@ -606,9 +606,9 @@ adapter = BotFrameworkAdapter(settings)
  
 class SimpleBot:
     async def on_turn(self, turn_context: TurnContext):
-        if turn_context.activity.type == "message":
-            await turn_context.send_activity(f"You said: {turn_context.activity.text}")
-
+        #if turn_context.activity.type == "message":
+        await turn_context.send_activity(f"You said: {turn_context.activity.text}")
+bot_logic = SimpleBot()
 async def bot_logic(turn_context: TurnContext):
     bot = SimpleBot()
     await bot.on_turn(turn_context)
